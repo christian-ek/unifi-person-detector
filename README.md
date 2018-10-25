@@ -3,8 +3,10 @@
 
 
 
-Create startscript with the following content /etc/systemd/system/upd.service
+Create startscript with the following content 
 ```
+/etc/systemd/system/upd.service
+
 [Unit]
 Description=Unifi Person Detector
 After=multi-user.target
