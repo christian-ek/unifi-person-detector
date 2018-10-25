@@ -25,10 +25,10 @@ WantedBy=multi-user.target
 
 Controll upd with:
 ```
-sudo systemctl enable upd.service #Will start upd service at startup
-sudo systemctl start upd.service
-sudo systemctl stop upd.service
-sudo systemctl status upd.service
+sudo systemctl enable upd.service   #Start upd service at startup
+sudo systemctl start upd.service    #Start upd service
+sudo systemctl stop upd.service     #Stop upd service
+sudo systemctl status upd.service   #Show status of upd service
 ```
 
 Install darknet with YOLO in /opt/darknet/ 
