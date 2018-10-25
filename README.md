@@ -1,7 +1,9 @@
 # unifi-person-detector
 
 
-##/etc/systemd/system/upd.service
+
+```
+Create startscript with the following content /etc/systemd/system/upd.service
 
 [Unit]
 Description=Unifi Person Detector
@@ -17,3 +19,4 @@ StandardError=syslog
 
 [Install]
 WantedBy=multi-user.target
+```
