@@ -19,4 +19,9 @@ StandardError=syslog
 
 [Install]
 WantedBy=multi-user.target
+
+Then controll upd with:
+systemctl start upd.service
+systemctl stop upd.service
+systemctl status upd.service
 ```
