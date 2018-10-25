@@ -22,12 +22,14 @@ StandardError=syslog
 [Install]
 WantedBy=multi-user.target
 ```
-```
+
 Controll upd with:
+```
 systemctl start upd.service
 systemctl stop upd.service
 systemctl status upd.service
 ```
+
 Install darknet with YOLO in /opt/darknet/ 
 ```
 git clone https://github.com/AlexeyAB/darknet.git /opt/darknet
