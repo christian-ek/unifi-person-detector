@@ -1,5 +1,5 @@
-# unifi-person-detector
-
+# Unifi Person Detector
+This script is used to run YOLO object detection on video files recorded by the unifi camera and send notification if that happens.
 
 
 
