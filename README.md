@@ -2,9 +2,9 @@
 
 
 
-```
-Create startscript with the following content /etc/systemd/system/upd.service
 
+Create startscript with the following content /etc/systemd/system/upd.service
+```
 [Unit]
 Description=Unifi Person Detector
 After=multi-user.target
@@ -20,7 +20,7 @@ StandardError=syslog
 [Install]
 WantedBy=multi-user.target
 
-Then controll upd with:
+Controll upd with:
 systemctl start upd.service
 systemctl stop upd.service
 systemctl status upd.service
