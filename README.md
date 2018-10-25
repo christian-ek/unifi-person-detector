@@ -3,7 +3,7 @@
 
 
 
-Create startscript with the following content 
+Create startscript with the following content (Ubuntu 16.04)
 ```
 /etc/systemd/system/upd.service
 
