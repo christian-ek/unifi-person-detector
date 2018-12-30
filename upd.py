@@ -15,20 +15,34 @@ import datetime
 import sys
 import tailer
 import requests
+import re
+import configparser
 
+config = configparser.ConfigParser()
+config.read('config.ini')
+
+# make this betterer?
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-LOG_FILE = "/apps/logs/upd.log" #Log directory
+UPD = config['DEFAULT']['UPD']
+LOG_FILE = config['DEFAULT']['LOG_FILE']
+API_KEY = config['DEFAULT']['API_KEY']
+NVR_HOST = config['DEFAULT']['NVR_HOST']
+RECORD_LOG = config['DEFAULT']['RECORD_LOG']
+HASS_HOST = config['DEFAULT']['HASS_HOST']
+HASS_API = config['DEFAULT']['HASS_API']
+DARKNET = config['DEFAULT']['DARKNET']
 
 class UnifiPersonDetector():
     """
     The application.
     """
     def __init__(self):
-        self.unifi_api_key = "[ENTER API KEY]"
-        self.unifi_nvr_host = "[ENTER UNIFI NVR HOST IP EX: 10.0.0.90]"
-        self.unifi_record_log = "[ENTER UNIFI RECORD LOG EX: /docker/unifi-video/logs/recording.log]"
-        self.hass_api_pass = "[ENTER HASS API PASSWORD]"
-
+        self.unifi_api_key = API_KEY
+        self.unifi_nvr_host = NVR_HOST
+        self.unifi_record_log = RECORD_LOG
+        self.hass_api_pass = HASS_API
+        self.hass_host = HASS_HOST
+        logging.info('HomeAssistant %s' % self.hass_host)
     def run(self):
         """
         This function is used for tailing the recording log and finding
@@ -37,18 +51,18 @@ class UnifiPersonDetector():
         logging.debug('ENTERING FUNCTION: run()')
 
         for line in tailer.follow(open(self.unifi_record_log)):
-            if 'STOPPING' in line:
+            if 'STOPPING' in line and 'motionRecording' in line:
                 split_row = line.split()
+#                logging.info('---------- Camera: %s ----------', split_row)
                 rec_time = split_row[2].split('.')[0]
                 rec_camera_id, rec_camera_name = split_row[4][6:].strip('[]').split('|')
 
+                logging.info('---------- Camera: %s ----------', rec_camera_name)
                 rec_id = split_row[7].split(':')[1]
 
                 logging.info('---------- New recording ----------')
-                logging.info('---------- Camera: %s ----------', rec_camera_name)
-                logging.info('---------- %s %s %s ----------',
-                             rec_time, rec_camera_id, rec_id)
-
+                logging.info('---------- Camera ID: %s Time: %s Rec ID: %s ----------', rec_camera_name, rec_time, rec_id)
+                rec_timestamp = rec_time.replace(":", "_")
                 # Download the recording.
                 rec_file = self.download_recording(rec_id)
                 if not rec_file:
@@ -58,9 +72,9 @@ class UnifiPersonDetector():
                 self.run_detection(rec_file)
 
                 if self.get_detection_result():
-                    self.copy_result_movie(rec_camera_name)
+                    self.copy_result_movie(rec_camera_name,rec_timestamp)
                     notification_image = self.get_notification_image(rec_camera_id, rec_id)
-                    self.send_ios_notification(notification_image, rec_camera_name)
+                    self.send_ios_notification(notification_image, rec_camera_name, rec_timestamp)
                 else:
                     logging.info('Person NOT FOUND in recording.')
 
@@ -118,15 +132,17 @@ class UnifiPersonDetector():
         # Return true or false if person is detected
         logging.info("Running detection on " + filepath)
         with open('/opt/darknet/result.txt', "wb") as outfile:
-            subprocess.call(
-                ["./darknet", "detector", "demo", "./cfg/coco.data",
-                 "./cfg/yolov3.cfg", "./yolov3.weights", filepath, "-i", "0",
-                 "-thresh", "0.25",
-                 "-out_filename", "result.avi"],
-                cwd=r'/opt/darknet/',
-                stdout=outfile,
-                )
-
+            detection = "./darknet detector demo ./cfg/coco.data ./cfg/yolov3-tiny.cfg ./yolov3-tiny.weights %s -i 0 -thresh 0.25 -out_filename ./result.avi" % (filepath)
+            logging.info("Running command: %s",detection)
+            subprocess.call(detection, shell=True, stdout=outfile, cwd=r'/opt/darknet')
+ #           subprocess.call(
+ #               ["./darknet", "detector", "demo", "./cfg/coco.data",
+ #                "./cfg/yolov3-tiny.cfg", "./yolov3-tiny.weights", filepath, "-i", "0",
+ #                "-thresh", "0.25",
+ #                "-out_filename", "/opt/darknet/result.avi"],
+ #               cwd=r'/opt/darknet/',
+ #               stdout=outfile,
+ #               )
         return
 
     @staticmethod
@@ -146,8 +162,14 @@ class UnifiPersonDetector():
         with open(result_file, 'r') as result:
             for line in result:
                 if 'person: ' in line:
+                    #hax
+                    person_regex = re.compile(r'person: \d{1,}%')
+                    search_results = person_regex.search(line)
+                    person = search_results.group()
+
                     logging.info('Found person on result line: %s', line.strip())
-                    if int(line.split(':')[1].strip().strip('%')) > 80:
+                    logging.info('%s',line.split(':')[1].strip().strip('%'))
+                    if int(person.split(':')[1].strip().strip('%')) > 80:
                         found_person = True
                         break
                     else:
@@ -168,15 +190,33 @@ class UnifiPersonDetector():
         logging.debug('PARAM 2: recording_id=' + recording_id)
 
         # Replace ids with your camera ids from the record log, add elif if you have more cameras
-        if recording_camera_id == "44D9E794BB60":
+        if recording_camera_id == "0418D6236DDD":
             #Baksidan camera
-            camera_path = "/docker/unifi-video/data/videos/6c97873f-4845-3fcc-a9c1-747f19fe995c/"
-        elif recording_camera_id == "44D9E794C5B4":
-            #Huvudentre camera
-            camera_path = "/docker/unifi-video/data/videos/96644d3c-99f9-3fee-bb61-e3c17328ecbf/"
-        elif recording_camera_id == "F09FC27F744D":
-            #Garaget camera
-            camera_path = "/docker/unifi-video/data/videos/8d9e2586-936b-3950-ba5e-2cf63fdf8d06/"
+            camera_path = "/mnt/videos/79f56025-924b-392c-beaf-96b2b81893c0/"
+        elif recording_camera_id == "802AA84E1742":
+        # Streetview 802AA84E1742
+            camera_path = "/mnt/videos/9eba181b-933e-3159-8ee2-7ae716d2630e/"
+        elif recording_camera_id == "802AA84E16FB":
+            #frontlawn
+            camera_path = "/mnt/videos/e8fcbb01-a79f-3710-a96c-03b95776ceb2/"
+        elif recording_camera_id == "802AA84EF07F":
+            #Driveway
+            camera_path = "/mnt/videos/8f5f03fc-bd7a-31b5-8ffd-57b77ef00a58/"
+        elif recording_camera_id == "0418D6A13494":
+            #hoodrat
+            camera_path = "/mnt/videos/ff61c9ca-705e-3894-9c8b-b7f8c1c99f04/"
+        elif recording_camera_id == "802AA84E2006":
+            #backpad
+            camera_path = "/mnt/videos/87a89e17-2274-378e-aada-271c8db935da/"
+        elif recording_camera_id == "0418D623E577":
+            #smokers
+            camera_path = "/mnt/videos/4fe43285-478c-3d92-ac03-4ec6d385085c/"
+        elif recording_camera_id == "FCECDAD89E5D":
+	   #Jumping Blacks
+           camera_path = "/mnt/videos/010b17ae-c643-3334-9bbf-accfc9ee3950/"
+        elif recording_camera_id == "802AA84EF45C":
+	   #backdoor watch
+           camera_path = "/mnt/videos/01ff88f8-f308-302b-9510-e339bcb9858b/"
 
         year, month, day = time.strftime("%Y,%m,%d").split(',')
 
@@ -201,28 +241,32 @@ class UnifiPersonDetector():
             return
 
     @staticmethod
-    def copy_result_movie(camera_name):
+    def copy_result_movie(camera_name, rec_timestamp):
         """
         This function copies the result movie from darknet folder into an archive
         """
         result_movie = "/opt/darknet/result.avi"
         year, month, day = time.strftime("%Y,%m,%d").split(',')
-        timestamp = time.strftime('%H_%M_%S')
+        #timestamp = time.strftime('%H_%M_%S')
+        timestamp = rec_timestamp
         dest_path = ("%s/recordings/%s/%s/%s" % (CURRENT_DIR, year, month, day))
-        dest = ("%s/%s_%s.avi" % (dest_path, timestamp, camera_name))
-
+        dest = ("%s/%s_%s.mp4" % (dest_path, timestamp, camera_name))
+        recording_file_path = ("%s/%s" % (CURRENT_DIR, "recording.mp4"))
         if not os.path.exists(dest_path):
             os.makedirs(dest_path)
-
         try:
             shutil.copy(result_movie, dest)
+            ffmpeg = "/usr/bin/ffmpeg -y -i %s -i %s -map 0:v:0 -map 1:a:0 -acodec copy %s -f null - 2> audiocopyoutput.txt" % (result_movie, recording_file_path, dest)
+            logging.info("Running command: %s",ffmpeg)
+            subprocess.call(ffmpeg , shell=True)
+
         except IOError as err:
             logging.error("Unable to copy file. %s", err)
         else:
             # if copy went good
             logging.info('Copied resultfile to ' + dest)
 
-    def send_ios_notification(self, notification_image, camera_name):
+    def send_ios_notification(self, notification_image, camera_name, rec_timestamp):
         """
         This function is used for sending a notification about the detection.
         """
@@ -230,18 +274,21 @@ class UnifiPersonDetector():
         # Send notification
         logging.info("Sending Notification!")
         year, month, day = time.strftime("%Y,%m,%d").split(',')
-        timestamp = time.strftime('%H_%M_%S')
-        dest_path = ("/docker/nginx/html/notification_images/%s/%s" % (month, day))
+        # timestamp = time.strftime('%H_%M_%S')
+        timestamp = rec_timestamp
+        dest_path = ("/config/notification_images/%s/%s" % (month, day))
         dest = ("%s/%s_%s.jpg" % (dest_path, timestamp, camera_name))
-        notification_url = ("https://[ENTER URL FOR WEBHOST]/notification_images/%s/%s/%s_%s.jpg"
+        notification_url = ("https://cdn.data.net.nz/notification_images/%s/%s/%s_%s.jpg"
                 % (month, day, timestamp, camera_name))
+        video_url = ("https://cdn.data.net.nz/recordings/%s/%s/%s/%s_%s.mp4"
+                % (year, month, day, timestamp, camera_name))
 
         # Create path if not existing
         if not os.path.exists(dest_path):
             os.makedirs(dest_path)
 
         # Change permissions on notification image
-        subprocess.call(["sudo", "chmod", "755", notification_image])
+        #subprocess.call(["sudo", "chmod", "755", notification_image])
 
         try:
             shutil.copy(notification_image, dest)
@@ -253,21 +300,21 @@ class UnifiPersonDetector():
 
         logging.info('Notification url: %s', notification_url)
 
-        data = { "message": "Person detected on camera: " + camera_name,
+        data = { "message": "Person detected on camera: " + camera_name + "\nVideo URL:" + video_url,
+                 "target": ["516078471147945984"],
                  "data": {
-                     "attachment": {
-                         "url": notification_url,
-                         "content-type": "jpeg",
-                         "hide-thumbnail": "false"
-                         }
+                     "images": [ dest ]
                      }
                  }
 
-        url = 'http://[ENTER HASS URL]/api/services/notify/iOS'
+        url = ('http://%s/api/services/notify/discord' % self.hass_host)
         headers = {'x-ha-access': self.hass_api_pass,
                    'content-type': 'application/json'}
-
+        logging.info('url: %s',url)
+        logging.info('headers: %s',headers)
+        logging.info('data: %s',data)
         response = requests.post(url, json=data, headers=headers)
+        logging.info('Received Notify response: %s', response.text)
         print(response.text)
         return
 
