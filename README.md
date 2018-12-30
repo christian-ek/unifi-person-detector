@@ -2,10 +2,10 @@
 This script is used to run YOLO object detection on video files recorded by the unifi camera and send notification if that happens.
 
 Basic requirements:
-Pyhon
-Darknet
-Unifi
-HomeAssistant
+Python 
+Darknet + Yolo
+Unifi Controller
+HomeAssistant (Discord)
 
 
 Create startscript with the following content (Ubuntu 16.04)
