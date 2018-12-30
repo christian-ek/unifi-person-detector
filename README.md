@@ -1,6 +1,11 @@
-# Unifi Person Detector
+# Unifi Person Detector v2.0
 This script is used to run YOLO object detection on video files recorded by the unifi camera and send notification if that happens.
 
+Basic requirements:
+Pyhon
+Darknet
+Unifi
+HomeAssistant
 
 
 Create startscript with the following content (Ubuntu 16.04)
