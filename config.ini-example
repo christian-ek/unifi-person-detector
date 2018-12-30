@@ -1,0 +1,16 @@
+; config.ini-exmaple
+[DEFAULT]
+#UFD Basics
+UPD = /repo/unifi_person_detector/
+UFD_LOG_FILE = /apps/logs/upd.log
+DARKNET = /opt/darknet/
+
+#Unifi settings
+NVR_HOST = [Enter NVR Host]
+NVR_API_KEY = [Enter API Key]
+NVR_RECORD_LOG = /mnt/logs/recording.log
+
+#HomeAssistant settings
+HASS_HOST = [Enter Host]
+HASS_API = [Enter HASS API]
+
